@@ -9,7 +9,6 @@ class PlaylistsService {
   constructor(collaborationService) {
     this._pool = new Pool();
     this._collaborationService = collaborationService;
-    console.log(collaborationService);
   }
 
   /**
