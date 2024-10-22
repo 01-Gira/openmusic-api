@@ -1,8 +1,7 @@
-require('dotenv').config();
 const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
-const NotFoundError = require('../exceptions/NotFoundError');
-const InvariantError = require('../exceptions/InvariantError');
+const NotFoundError = require('../../exceptions/NotFoundError');
+const InvariantError = require('../../exceptions/InvariantError');
 
 class PlaylistSongsService {
   constructor(songsService) {
@@ -66,7 +65,7 @@ class PlaylistSongsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Playlist tidak ditemukan');
     }
 
@@ -81,7 +80,7 @@ class PlaylistSongsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Song gagal dihapus dari playlist');
     }
 
@@ -107,7 +106,7 @@ class PlaylistSongsService {
     const result = await this._pool.query(query);
 
     if (!result.rows[0].id) {
-      throw new Error('Playlist activities gagal ditambahkan');
+      throw new InvariantError('Playlist activities gagal ditambahkan');
     }
 
   }

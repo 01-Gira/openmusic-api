@@ -1,9 +1,8 @@
-require('dotenv').config();
 const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
-const NotFoundError = require('../exceptions/NotFoundError');
-const InvariantError = require('../exceptions/InvariantError');
-const AuthorizationError = require('../exceptions/AuthorizationError');
+const NotFoundError = require('../../exceptions/NotFoundError');
+const InvariantError = require('../../exceptions/InvariantError');
+const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class PlaylistsService {
   constructor(collaborationService) {
@@ -53,16 +52,16 @@ class PlaylistsService {
 	    ) AS songs
       FROM playlists p LEFT JOIN playlist_songs ps ON p.id = ps."playlistId"
       LEFT JOIN songs s on ps."songId" = s.id 
-      LEFT JOIN playlist_colloborators pc on p.id = pc."playlistId"
-      where p.id = $1 AND p."userId" = $2 or pc."userId" $2 
+      LEFT JOIN playlist_collaborations pc on p.id = pc."playlistId"
+      where p.id = $1 AND (p."userId" = $2 OR pc."userId" = $2) 
       group by p.id`,
       values: [id, credentialId],
     };
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
-      throw new InvariantError('Playlist tidak ditemukan');
+    if (!result.rowCount) {
+      throw new NotFoundError('Playlist tidak ditemukan');
     }
 
     const album = result.rows[0];
@@ -103,7 +102,7 @@ class PlaylistsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new InvariantError('Playlist gagal dihapus. ID tidak ditemukan');
     }
   }
@@ -122,7 +121,7 @@ class PlaylistsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Gagal memperbarui playlist. ID tidak ditemukan');
     }
   }
@@ -163,7 +162,7 @@ class PlaylistsService {
     };
 
     const result = await this._pool.query(query);
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Playlist tidak ditemukan');
     }
 

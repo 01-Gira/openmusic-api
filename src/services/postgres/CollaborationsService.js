@@ -1,9 +1,8 @@
-require('dotenv').config();
 const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
-const InvariantError = require('../exceptions/InvariantError');
-const AuthorizationError = require('../exceptions/AuthorizationError');
-const NotFoundError = require('../exceptions/NotFoundError');
+const InvariantError = require('../../exceptions/InvariantError');
+const AuthorizationError = require('../../exceptions/AuthorizationError');
+const NotFoundError = require('../../exceptions/NotFoundError');
 
 class CollaborationsService {
   constructor() {
@@ -75,7 +74,7 @@ class CollaborationsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Playlist Collaboration gagal dihapus. ID tidak ditemukan');
     }
   }

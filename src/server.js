@@ -5,44 +5,60 @@ require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
 
+const ClientError = require('./exceptions/ClientError');
+
+const CacheService = require('./services/redis/CacheService');
+
 const authentications = require('./api/authentications');
-const AuthenticationsService = require('./services/AuthenticationsService');
+const AuthenticationsService = require('./services/postgres/AuthenticationsService');
 const TokenManager = require('./tokenize/TokenManager');
 const AuthenticationsValidator = require('./validator/authentications');
 
 const users = require('./api/users');
-const UsersService = require('./services/UsersService');
+const UsersService = require('./services/postgres/UsersService');
 const UsersValidator = require('./validator/users');
 
 const albums = require('./api/albums');
-const AlbumsService = require('./services/AlbumsService');
+const AlbumsService = require('./services/postgres/AlbumsService');
 const AlbumsValidator = require('./validator/albums');
 
 const songs = require('./api/songs');
-const SongsService = require('./services/SongsService');
+const SongsService = require('./services/postgres/SongsService');
 const SongsValidator = require('./validator/songs');
 
 const playlists = require('./api/playlists');
-const PlaylistsService = require('./services/PlaylistsService');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
 const PlaylistsValidator = require('./validator/playlists');
 
 const playlistsongs = require('./api/playlistsongs');
-const PlaylistSongsService = require('./services/PlaylistSongsService');
+const PlaylistSongsService = require('./services/postgres/PlaylistSongsService');
 const PlaylistSongsValidator = require('./validator/playlistsongs');
 
 const collaborations = require('./api/collaborations');
-const CollaborationsService = require('./services/CollaborationsService');
+const CollaborationsService = require('./services/postgres/CollaborationsService');
 const CollaborationsValidator = require('./validator/collaborations');
-const ClientError = require('./exceptions/ClientError');
+
+const _exports = require('./api/exports');
+const ProducerService = require('./services/rabbitmq/ProducerService');
+const ExportsValidator = require('./validator/exports');
+
+const StorageService = require('./services/S3/StorageService');
+
+const uploads = require('./api/uploads');
+const UploadsValidator = require('./validator/uploads');
+
+const albumlikes = require('./api/likeAlbums');
 
 const init = async () => {
+  const cacheService = new CacheService();
   const authenticationsService = new AuthenticationsService();
   const usersService = new UsersService();
-  const albumsService = new AlbumsService();
+  const albumsService = new AlbumsService(cacheService);
   const songsService = new SongsService();
   const collaborationsService = new CollaborationsService();
   const playlistsService = new PlaylistsService(collaborationsService);
   const playlistSongsService = new PlaylistSongsService(songsService);
+  const storageService = new StorageService();
 
   const server = Hapi.server({
     port: process.env.PORT,
@@ -135,13 +151,34 @@ const init = async () => {
         validator: PlaylistSongsValidator,
       },
     },
+    {
+      plugin: _exports,
+      options: {
+        producerService : ProducerService,
+        playlistsService,
+        validator: ExportsValidator,
+      },
+    },
+    {
+      plugin: uploads,
+      options: {
+        storageService,
+        albumsService,
+        validator: UploadsValidator,
+      },
+    },
+    {
+      plugin: albumlikes,
+      options: {
+        albumsService,
+        validator: UploadsValidator,
+      },
+    },
   ]);
 
   server.ext('onPreResponse', (request, h) => {
-    // mendapatkan konteks response dari request
     const { response } = request;
     if (response instanceof Error) {
-      // penanganan client error secara internal.
       if (response instanceof ClientError) {
         const newResponse = h.response({
           status: 'fail',
@@ -150,19 +187,14 @@ const init = async () => {
         newResponse.code(response.statusCode);
         return newResponse;
       }
-      // mempertahankan penanganan client error oleh hapi secara native, seperti 404, etc.
       if (!response.isServer) {
         return h.continue;
       }
-      // penanganan server error sesuai kebutuhan
-      const newResponse = h.response({
+      return h.response({
         status: 'error',
-        message: 'terjadi kegagalan pada server kami',
-      });
-      newResponse.code(500);
-      return newResponse;
+        message: `Terjadi kegagalan pada server kami. Error Message : ${  response}`,
+      }).code(500);
     }
-    // jika bukan error, lanjutkan dengan response sebelumnya (tanpa terintervensi)
     return h.continue;
   });
 

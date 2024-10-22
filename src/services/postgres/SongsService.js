@@ -1,7 +1,6 @@
-require('dotenv').config();
 const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
-const NotFoundError = require('../exceptions/NotFoundError');
+const NotFoundError = require('../../exceptions/NotFoundError');
 
 class SongsService {
   constructor() {
@@ -27,7 +26,7 @@ class SongsService {
     const result = await this._pool.query(query);
 
     if (!result.rows[0].id) {
-      throw new Error('Lagu gagal ditambahkan');
+      throw new NotFoundError('Lagu gagal ditambahkan');
     }
 
     return result.rows[0].id;
@@ -46,7 +45,7 @@ class SongsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Song tidak ditemukan');
     }
 
@@ -68,24 +67,16 @@ class SongsService {
     };
 
     if (title) {
-      query.text += ' AND LOWER(title) LIKE \'%\' || LOWER($1) || \'%\'';
+      query.text += ` AND LOWER(title) LIKE '%' || LOWER($${query.values.length + 1}) || '%'`;
       query.values.push(title);
     }
 
     if (performer) {
-      query.text += ' AND LOWER(performer) LIKE \'%\' || LOWER($2) || \'%\'';
+      query.text += ` AND LOWER(performer) LIKE '%' || LOWER($${query.values.length + 1}) || '%'`;
       query.values.push(performer);
     }
 
     const result = await this._pool.query(query);
-
-    // const songs = result.rows.map((song) => {
-    //   return {
-    //     ...song,
-    //     year: Number(song.year), // Konversi year menjadi number
-    //   };
-    // });
-
     return result.rows;
   }
   /**
@@ -101,7 +92,7 @@ class SongsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Song gagal dihapus. ID tidak ditemukan');
     }
   }
@@ -124,7 +115,7 @@ class SongsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Gagal memperbarui album. ID tidak ditemukan');
     }
   }

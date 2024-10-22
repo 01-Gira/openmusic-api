@@ -2,3 +2,6 @@ node_modules
 .env
 openmusic-api.zip
 notes-apl-webserver.pem
+openmusic-app-queue-consumer
+openmusic-api
+openmusic-app.zip
