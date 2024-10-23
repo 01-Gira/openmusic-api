@@ -142,28 +142,30 @@ class AlbumsService {
    * @returns {Promise<void>}
    */
   async getAlbumLikes(id) {
-    const resultCache = await this._cacheService.get(`album_likes:${id}`);
+    try {
+      const isCache = await this._cacheService.get(`album_likes:${id}`);
 
-    if (resultCache) {
-      return { source: 'cache', data: JSON.parse(result) };
+      if (isCache) {
+        return { source: 'cache', data: JSON.parse(isCache) };
+      }
+    } catch {
+      const query = {
+        text: 'SELECT COUNT(id) as likes FROM album_likes WHERE "albumId" = $1',
+        values: [id],
+      };
+
+      const result = await this._pool.query(query);
+
+      if (!result.rowCount) {
+        throw new NotFoundError('ID tidak ditemukan');
+      }
+
+      result.rows[0].likes = Number(result.rows[0].likes);
+
+      await this._cacheService.set(`album_likes:${id}`, JSON.stringify(result.rows[0]), 1800);
+
+      return { likes: result.rows[0].likes };
     }
-
-    const query = {
-      text: 'SELECT COUNT(id) as likes FROM album_likes WHERE "albumId" = $1',
-      values: [id],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (!result.rowCount) {
-      throw new NotFoundError('ID tidak ditemukan');
-    }
-
-    result.rows[0].likes = Number(result.rows[0].likes);
-
-    await this._cacheService.set(`album_likes:${id}`, JSON.stringify(result.rows[0]));
-
-    return result.rows[0];
   }
 
   /**
